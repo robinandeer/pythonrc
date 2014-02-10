@@ -4,6 +4,49 @@ pythonrc
 
 Drop-in augmenter.
 
+User's Guide
+--------------
+These are the nessesary steps to use **pythonrc**:
+
+1. Install the package
+
+.. code-block:: console
+
+  $ pip install rc
+
+2. Import into your project
+
+```python
+from docopt import docopt
+import rc
+import myscript
+```
+
+3. Run docopt to parse the command line arguments
+
+```python
+args = docopt(__doc__, version='MyScript {v}'.format(v=myscript.__version__))
+```
+
+4. Set up your script level defaults (lowest priority)
+
+.. code-block:: python
+
+  defaults = {
+    'url': 'news.layervault.com',
+    'category': 'news',
+    'votes': 0
+  }
+
+5. Parse potential config-files, both in user home and in the current directory (will simply return empty `dict` if files are missing)
+
+.. code-block:: python
+
+  options = rc.extend_args(args, __file__, defaults)
+
+That's it. We have now merged the defaults <= user configs <= command line arguments.
+
+
 Background & Motivation
 -------------------------
 Config files can unburden the command line and allow users to set user/project specific defaults. A common practice is to name such files `.<script_name>rc`, e.g. '.bashrc', '.bowerrc'.
