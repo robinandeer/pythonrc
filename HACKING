@@ -1,0 +1,6 @@
+1 tab = 2 spaces
+
+Triple-quotes should always be """, single quotes are ' unless using "
+would result in less escaping within the string.
+
+All modules, functions, and methods should be well documented reStructuredText for Sphinx AutoDoc.
