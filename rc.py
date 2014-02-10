@@ -61,34 +61,50 @@ def build_config_path(script_name, scope='local'):
   return os.path.join(dir_path, rc_name)
 
 
-def convert_docopt_args(dictionary):
+def convert_boolean_args(dictionary):
   """
-  <public>Converts a docopt argument dict to simpler names, more suitable
-  for defining options in a config file.
+  <public>Converts boolean-like ('yes', 'true') in a `dict` to proper
+  `True`/`False` values.
 
-  :param dict dictionary: docopt generated args dictionary
-  :returns: Updated dictionary with simpler key names
+  :param dict dictionary: `dict` with string values
+  :returns: Updated dictionary with boolean replacement values
   """
-  new_dict = {}
   for key, value in dictionary.iteritems():
-    new_key = key
-    if '--' in key:
-      # Regular argument, remove leading '--'
-      new_key = key.replace('--', '')
+    # Also update fake 'boolean' arguments
+    if value.lower() in ('yes', 'true'):
+      dictionary[key] = True
+    elif value.lower() in ('no', 'false'):
+      dictionary[key] = False
 
-      # Also update fake 'boolean' arguments
-      if value.lower() in ('yes', 'true'):
-        value = True
-      elif value.lower() in ('no', 'false'):
-        value = False
+  return dictionary
 
-    elif '<' in key:
-      # Positional argument, remove framing '<...>'
-      new_key = key[1:-1]
 
-    new_dict[new_key] = value
+def merge_docopt(defaults, docopt_dict):
+  """
+  <public> Merges two `dict`s; one with docopt style keys and one with simple
+  keys. The simple `dict` contains default values that might be
+  overridden/discarded. The docopt style key names are maintained.
 
-  return new_dict
+  :param dict defaults: default values with simple key names
+  :param dict docopt_dict: higher priority values with docopt style key names
+  :returns: updated/merged `dict`
+  """
+  for key, value in docopt_dict.iteritems():
+    # If the user hasn't submitted a value for a given option
+    if value is None:
+      if key.startswith('--'):
+        # Regular option, remove leading '--'
+        simple_key = key[2:]
+
+      elif key.startswith('<'):
+        # Positional argument, remove framing '<...>'
+        simple_key = key[1:-1]
+
+      if simple_key in defaults:
+        # Update (merge) the docopt_dict
+        docopt_dict[key] = defaults[simple_key]
+
+  return docopt_dict
 
 
 def extend_args(args, script, defaults=None, scopes=['global', 'local']):
@@ -122,45 +138,37 @@ def extend_args(args, script, defaults=None, scopes=['global', 'local']):
       # Merge defaults and config file options
       defaults.update(config)
 
-  # Convert to simpler argument keys
-  simple_args = convert_docopt_args(args)
+  # Convert boolean-like to boolean values
+  bool_args = convert_boolean_args(args)
 
   # Merge combo and command line options
-  for key, value in simple_args.iteritems():
-    # If the user hasn't supplied a command line option ('falsy')
-    if not value:
-      # Don't do anyting if the option exists
-      if key in defaults:
-        continue
-
-    # Replace/add the command line option to the final options
-    defaults[key] = value
+  merged_args = merge_docopt(defaults, bool_args)
 
   # Serve the final options to the user
-  return defaults
+  return merged_args
 
 
-def write_config(contents, path_, type='json', overwrite=True):
+def write_config(contents, out_path, type='json', overwrite=True):
   """
   <public> Writes/Overwrites a config file with (updated) values in one of
   the supported formats: JSON, YAML.
 
   :param dict contents: `Dict` with all options
-  :param str path_: The path to write to
+  :param str out_path: The path to write to
   :param str type: (optional) Format to write to, options: 'json', 'yaml'
   :param bool overwrite: (optional) Set `False` to raise exception before
                          overwriting an existing file.
   """
   if type == 'json':
-    dump = json.dumps(contents)
+    dump = json.dumps(contents, indent=2)
   elif type == 'yaml':
     dump = yaml.dump(contents, allow_unicode=True, default_flow_style=False)
   else:
     raise ValueError("Only type 'json'/'yaml' are supported, not: " + type)
 
-  if overwrite or not path_.exists():
+  if overwrite or not out_path.exists():
     # Write/Overwrite file with new contents
-    path_ = path(path_).write_text(dump)
+    out_path = path(out_path).write_text(dump)
   else:
     # The file already exists and the user has choosen not to overwrite it
-    raise FileExistsExeption(path_ + ' already exists.')
+    raise FileExistsExeption(out_path + ' already exists.')
